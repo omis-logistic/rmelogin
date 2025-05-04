@@ -883,36 +883,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// ================= SUPPORTING FUNCTIONS =================
-function handleFormInput(e) {
-  switch(e.target.id) {
-    case 'trackingNumber':
-      validateTrackingNumberInput(e.target);
-      break;
-    case 'nameOnParcel':
-      validateName(e.target);
-      break;
-    case 'phone':
-      validateParcelPhone(e.target);
-      break;
-    case 'itemDescription':
-      validateDescription(e.target);
-      break;
-    case 'quantity':
-      validateQuantity(e.target);
-      break;
-    case 'price':
-      validatePrice(e.target);
-      break;
-    case 'shippingPrice':
-      validateShippingPrice(e.target);
-      break;
-    case 'collectionPoint':
-      validateCollectionPoint(e.target);
-      break;
-  }
-  updateSubmitButtonState();
-}
 
 // New functions for category requirements =================
 function checkCategoryRequirements() {
