@@ -914,12 +914,6 @@ function handleFormInput(e) {
   updateSubmitButtonState();
 }
 
-function formatPhoneNumber(e) {
-  const phone = e.target.value.replace(/\D/g, '');
-  const match = phone.match(/^(673|60)(\d{0,8})$/);
-  e.target.value = match ? `${match[1]} ${match[2]}` : phone;
-}
-
 // New functions for category requirements =================
 function checkCategoryRequirements() {
   const category = document.getElementById('itemCategory')?.value || '';
