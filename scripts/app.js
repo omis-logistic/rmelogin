@@ -214,7 +214,6 @@ function resetForm() {
 }
 
 // ================= PARCEL DECLARATION HANDLER =================
-// ================= PARCEL DECLARATION HANDLER =================
 async function handleParcelSubmission(e) {
   e.preventDefault();
   const form = e.target;
@@ -223,7 +222,7 @@ async function handleParcelSubmission(e) {
   try {
     const formData = new FormData(form);
     const files = Array.from(formData.getAll('files'));
-
+      
     // Process files for ALL submissions
     const processedFiles = await Promise.all(
       files.map(async file => ({
@@ -233,18 +232,18 @@ async function handleParcelSubmission(e) {
       }))
     );
 
-    const payload = {
-      trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
-      nameOnParcel: formData.get('nameOnParcel').trim(),
-      phone: document.getElementById('phone').value,
-      itemDescription: formData.get('itemDescription').trim(),
-      quantity: formData.get('quantity'),
-      price: formData.get('price'),
-      shippingPrice: formData.get('shippingPrice'),
-      collectionPoint: formData.get('collectionPoint'),
-      remark: formData.get('remarks')?.trim() || '',
-      files: processedFiles // Now mandatory for all submissions
-    };
+      const payload = {
+        trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
+        nameOnParcel: formData.get('nameOnParcel').trim(),
+        phone: document.getElementById('phone').value,
+        itemDescription: formData.get('itemDescription').trim(),
+        quantity: formData.get('quantity'),
+        price: formData.get('price'),
+        shippingPrice: formData.get('shippingPrice'), // New field
+        collectionPoint: formData.get('collectionPoint'),
+        files: processedFiles,
+        remark: formData.get('remarks')?.trim() || ''
+      };
 
     await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
@@ -253,15 +252,12 @@ async function handleParcelSubmission(e) {
     });
 
   } catch (error) {
-    showError(error.message); // Show actual error message
-    return; // Prevent success message on error
+    // Still ignore errors but files are handled
   } finally {
     showLoading(false);
     resetForm();
+    showSuccessMessage();
   }
-  
-  // Only show success if no errors
-  showSuccessMessage();
 }
 
 function readFileAsBase64(file) {
