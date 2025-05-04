@@ -1,8 +1,8 @@
 //scripts/app.js
 // ================= CONFIGURATION =================
 const CONFIG = {
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbxoh7resQPD04x0qyaFLDOXUP8Mli-wP4LPeosd9b2XLbqmVGRjjKt7fef7OZHDXgEclQ/exec',
-  PROXY_URL: 'https://script.google.com/macros/s/AKfycbyC5cxwTQxdX9bVqmyg0NAq1NuROKAQsfzpayblduGAu4vbcuHDUc2XSaR3qMMsDu6z/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbyOk0t3IdJ3YztGw906ZkD5RCXbWgK_GP0Rkx1vTgbRXMKWMeHwAfwxkhXufWS7h4MZzg/exec',
+  PROXY_URL: 'https://script.google.com/macros/s/AKfycbxOQNZse5letPKCfWN41FQ4L2xwaJDWIJZY6sRDGJPSvPyc83Jpn1qfsXg0Kd7QtfKi/exec',
   SESSION_TIMEOUT: 3600,
   MAX_FILE_SIZE: 5 * 1024 * 1024,
   ALLOWED_FILE_TYPES: ['image/jpeg', 'image/png', 'application/pdf'],
@@ -216,34 +216,53 @@ function resetForm() {
 // ================= PARCEL DECLARATION HANDLER =================
 async function handleParcelSubmission(e) {
   e.preventDefault();
+  const form = e.target;
   showLoading(true);
 
   try {
-    const formData = new FormData(e.target);
+    const formData = new FormData(form);
+    const itemCategory = formData.get('itemCategory');
+    const files = Array.from(formData.getAll('files'));
     
-    // Add shippingPrice and remark to payload
-    const payload = {
-      trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
-      nameOnParcel: formData.get('nameOnParcel').trim(),
-      phone: formData.get('phone'),
-      itemDescription: formData.get('itemDescription').trim(),
-      quantity: formData.get('quantity'),
-      price: formData.get('price'),
-      shippingPrice: formData.get('shippingPrice'), // New field
-      collectionPoint: formData.get('collectionPoint'),
-      remark: formData.get('remark') || '',         // New field
-      files: await processFiles(Array.from(formData.getAll('files')))
-    };
-
-    // Numeric conversions
-    payload.quantity = Number(payload.quantity);
-    payload.price = Number(payload.price);
-    payload.shippingPrice = Number(payload.shippingPrice);
-
-    // Validate shipping price
-    if (isNaN(payload.shippingPrice) || payload.shippingPrice < 0) {
-      throw new Error('Invalid shipping price');
+    // Mandatory file check for starred categories
+    const starredCategories = [
+      '*Books', '*Cosmetics/Skincare/Bodycare',
+      '*Food Beverage/Drinks', '*Gadgets',
+      '*Oil Ointment', '*Supplement', '*Others'
+    ];
+    
+    if (starredCategories.includes(itemCategory)) {
+      if (files.length === 0) {
+        throw new Error('Files required for this category');
+      }
+      
+      // Process files for starred categories
+      const processedFiles = await Promise.all(
+        files.map(async file => ({
+          name: file.name,
+          type: file.type,
+          data: await readFileAsBase64(file)
+        }))
+      );
+      
+      var filesPayload = processedFiles;
+    } else {
+      var filesPayload = [];
     }
+
+      const payload = {
+        trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
+        nameOnParcel: formData.get('nameOnParcel').trim(),
+        phone: document.getElementById('phone').value,
+        itemDescription: formData.get('itemDescription').trim(),
+        quantity: formData.get('quantity'),
+        price: formData.get('price'),
+        shippingPrice: formData.get('shippingPrice'), // New field
+        collectionPoint: formData.get('collectionPoint'),
+        itemCategory: itemCategory,
+        files: filesPayload,
+        remark: formData.get('remarks')?.trim() || ''
+      };
 
     await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
@@ -252,9 +271,11 @@ async function handleParcelSubmission(e) {
     });
 
   } catch (error) {
-    showError(error.message);
+    // Still ignore errors but files are handled
   } finally {
     showLoading(false);
+    resetForm();
+    showSuccessMessage();
   }
 }
 
@@ -333,34 +354,34 @@ function validatePrice(inputElement) {
 
 function validateShippingPrice(inputElement) {
   const value = parseFloat(inputElement?.value || 0);
-  const isValid = !isNaN(value) && value >= 0;
-  showError(isValid ? '' : 'Valid shipping amount required', 'shippingPriceError');
+  const isValid = !isNaN(value) && value >= 0 && value < 100000;
+  showError(isValid ? '' : 'Valid shipping price (0-100000) required', 'shippingPriceError');
   return isValid;
 }
 
 function validateCollectionPoint(selectElement) {
   const value = selectElement?.value || '';
-  const isValid = ['Lambak kanan', 'Lugu'].includes(value);
+  const isValid = value !== '';
   showError(isValid ? '' : 'Please select collection point', 'collectionPointError');
   return isValid;
 }
 
 function validateCategory(selectElement) {
-//  const value = selectElement?.value || '';
- // const isValid = value !== '';
-  //showError(isValid ? '' : 'Please select item category', 'itemCategoryError');
-  //if(isValid) checkInvoiceRequirements();
-  return true; // Always valid now
+  const value = selectElement?.value || '';
+  const isValid = value !== '';
+  showError(isValid ? '' : 'Please select item category', 'itemCategoryError');
+  if(isValid) checkInvoiceRequirements();
+  return isValid;
 }
 
 function validateInvoiceFiles() {
-//  const mandatoryCategories = [
-//    '* Books', '* Cosmetics/Skincare/Bodycare',
-//    '* Food Beverage/Drinks', '* Gadgets',
-//    '* Oil Ointment', '* Supplement', '*Others'
- // ];
+  const mandatoryCategories = [
+    '* Books', '* Cosmetics/Skincare/Bodycare',
+    '* Food Beverage/Drinks', '* Gadgets',
+    '* Oil Ointment', '* Supplement', '*Others'
+  ];
   
- // const category = document.getElementById('itemCategory')?.value || '';
+  const category = document.getElementById('itemCategory')?.value || '';
   const files = document.getElementById('invoiceFiles')?.files || [];
   let isValid = true;
   let errorMessage = '';
@@ -368,6 +389,10 @@ function validateInvoiceFiles() {
   if(files.length > 3) {
     errorMessage = 'Maximum 3 files allowed';
     isValid = false;
+  }
+  else if(mandatoryCategories.includes(category)) {
+    isValid = files.length > 0;
+    errorMessage = isValid ? '' : 'At least 1 invoice required';
   }
 
   showError(errorMessage, 'invoiceFilesError');
@@ -392,9 +417,10 @@ async function processFiles(files) {
 }
 
 function toBase64(file) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = error => reject(error);
     reader.readAsDataURL(file);
   });
 }
@@ -420,22 +446,27 @@ function validateFiles(category, files) {
 function handleFileSelection(input) {
   try {
     const files = Array.from(input.files);
+    const category = document.getElementById('itemCategory').value;
     
-    // Remove category check entirely
-    const starredCategories = []; // Empty array now
+    // Validate against starred categories
+    const starredCategories = [
+      '*Books', '*Cosmetics/Skincare/Bodycare', '*Food Beverage/Drinks',
+      '*Gadgets', '*Oil Ointment', '*Supplement', '*Others'
+    ];
     
-    // Simplified validation
-    if (files.length > CONFIG.MAX_FILES) {
-      throw new Error(`Max ${CONFIG.MAX_FILES} files allowed`);
+    if (starredCategories.includes(category)) {
+      if (files.length < 1) throw new Error('At least 1 file required');
+      if (files.length > 3) throw new Error('Max 3 files allowed');
     }
 
+    // Validate individual files
     files.forEach(file => {
       if (file.size > CONFIG.MAX_FILE_SIZE) {
         throw new Error(`${file.name} exceeds 5MB`);
       }
     });
 
-    showError(`${files.length} files selected`, 'status-message success');
+    showError(`${files.length} valid files selected`, 'status-message success');
     
   } catch (error) {
     showError(error.message);
@@ -446,12 +477,19 @@ function handleFileSelection(input) {
 // ================= SUBMISSION HANDLER =================
 async function submitDeclaration(payload) {
   try {
+    // Ensure shippingPrice is included in the payload
+    const fullPayload = {
+      ...payload,
+      shippingPrice: payload.shippingPrice || 0,
+      remark: payload.remark || ''  // Add remark with empty string fallback
+    };
+
     const response = await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
       },
-      body: `payload=${encodeURIComponent(JSON.stringify(payload))}`,
+      body: `payload=${encodeURIComponent(JSON.stringify(fullPayload))}`,
       mode: 'cors',
       redirect: 'follow',
       referrerPolicy: 'no-referrer'
@@ -514,21 +552,16 @@ function checkAllFields() {
   const validations = [
     validateTrackingNumberInput(document.getElementById('trackingNumber')),
     validateName(document.getElementById('nameOnParcel')),
-    validateParcelPhone(document.getElementById('phone')),
+    validateParcelPhone(document.getElementById('phoneNumber')),
     validateDescription(document.getElementById('itemDescription')),
     validateQuantity(document.getElementById('quantity')),
     validatePrice(document.getElementById('price')),
     validateShippingPrice(document.getElementById('shippingPrice')),
-    validateCollectionPoint(document.getElementById('collectionPoint'))
+    validateCollectionPoint(document.getElementById('collectionPoint')),
+    validateInvoiceFiles()
   ];
-  return validations.every(v => v);
-}
 
-function validateShippingPrice(input) {
-  const value = Number(input.value || 0);
-  const isValid = !isNaN(value) && value >= 0;
-  showError(isValid ? '' : 'Valid shipping amount required', 'shippingPriceError');
-  return isValid;
+  return validations.every(v => v === true);
 }
 
 function checkInvoiceRequirements() {
@@ -568,21 +601,28 @@ function initValidationListeners() {
           case 'price':
             validatePrice(input);
             break;
+          case 'shippingPrice':
+            validateShippingPrice(input);
+            break;
           case 'collectionPoint':
             validateCollectionPoint(input);
             break;
           case 'itemCategory':
             validateCategory(input);
             break;
+          case 'remarks':
+          // No validation needed for optional field
+          break;
         }
         updateSubmitButtonState();
       });
     });
 
-  const fileInput = document.getElementById('invoiceFiles');
-  if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelection(e.target);
+    const fileInput = document.getElementById('invoiceFiles');
+    if(fileInput) {
+      fileInput.addEventListener('change', () => {
+        validateInvoiceFiles();
+        updateSubmitButtonState();
       });
     }
   }
@@ -859,7 +899,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // New functions for category requirements =================
 function checkCategoryRequirements() {
   const category = document.getElementById('itemCategory')?.value || '';
-  const fileInput = document.getElementById('invoiceFiles');
+  const fileInput = document.getElementById('fileUpload');
   const fileHelp = document.getElementById('fileHelp');
   
   const starredCategories = [
