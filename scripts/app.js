@@ -214,6 +214,7 @@ function resetForm() {
 }
 
 // ================= PARCEL DECLARATION HANDLER =================
+// ================= PARCEL DECLARATION HANDLER =================
 async function handleParcelSubmission(e) {
   e.preventDefault();
   const form = e.target;
@@ -221,47 +222,29 @@ async function handleParcelSubmission(e) {
 
   try {
     const formData = new FormData(form);
-    const itemCategory = formData.get('itemCategory');
     const files = Array.from(formData.getAll('files'));
-    
-    // Mandatory file check for starred categories
-    const starredCategories = [
-      '*Books', '*Cosmetics/Skincare/Bodycare',
-      '*Food Beverage/Drinks', '*Gadgets',
-      '*Oil Ointment', '*Supplement', '*Others'
-    ];
-    
-    if (starredCategories.includes(itemCategory)) {
-      if (files.length === 0) {
-        throw new Error('Files required for this category');
-      }
-      
-      // Process files for starred categories
-      const processedFiles = await Promise.all(
-        files.map(async file => ({
-          name: file.name,
-          type: file.type,
-          data: await readFileAsBase64(file)
-        }))
-      );
-      
-      var filesPayload = processedFiles;
-    } else {
-      var filesPayload = [];
-    }
 
-      const payload = {
-        trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
-        nameOnParcel: formData.get('nameOnParcel').trim(),
-        phone: document.getElementById('phone').value,
-        itemDescription: formData.get('itemDescription').trim(),
-        quantity: formData.get('quantity'),
-        price: formData.get('price'),
-        shippingPrice: formData.get('shippingPrice'), // New field
-        collectionPoint: formData.get('collectionPoint'),
-        files: processedFiles,
-        remark: formData.get('remarks')?.trim() || ''
-      };
+    // Process files for ALL submissions
+    const processedFiles = await Promise.all(
+      files.map(async file => ({
+        name: file.name,
+        type: file.type,
+        data: await readFileAsBase64(file)
+      }))
+    );
+
+    const payload = {
+      trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
+      nameOnParcel: formData.get('nameOnParcel').trim(),
+      phone: document.getElementById('phone').value,
+      itemDescription: formData.get('itemDescription').trim(),
+      quantity: formData.get('quantity'),
+      price: formData.get('price'),
+      shippingPrice: formData.get('shippingPrice'),
+      collectionPoint: formData.get('collectionPoint'),
+      remark: formData.get('remarks')?.trim() || '',
+      files: processedFiles // Now mandatory for all submissions
+    };
 
     await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
@@ -270,12 +253,15 @@ async function handleParcelSubmission(e) {
     });
 
   } catch (error) {
-    // Still ignore errors but files are handled
+    showError(error.message); // Show actual error message
+    return; // Prevent success message on error
   } finally {
     showLoading(false);
     resetForm();
-    showSuccessMessage();
   }
+  
+  // Only show success if no errors
+  showSuccessMessage();
 }
 
 function readFileAsBase64(file) {
@@ -551,9 +537,6 @@ function initValidationListeners() {
             break;
           case 'collectionPoint':
             validateCollectionPoint(input);
-            break;
-          case 'itemCategory':
-            validateCategory(input);
             break;
           case 'remarks':
           // No validation needed for optional field
