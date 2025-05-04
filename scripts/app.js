@@ -442,27 +442,22 @@ function validateFiles(category, files) {
 function handleFileSelection(input) {
   try {
     const files = Array.from(input.files);
-    const category = document.getElementById('itemCategory').value;
     
-    // Validate against starred categories
-    const starredCategories = [
-      '*Books', '*Cosmetics/Skincare/Bodycare', '*Food Beverage/Drinks',
-      '*Gadgets', '*Oil Ointment', '*Supplement', '*Others'
-    ];
+    // Remove category check entirely
+    const starredCategories = []; // Empty array now
     
-    if (starredCategories.includes(category)) {
-      if (files.length < 1) throw new Error('At least 1 file required');
-      if (files.length > 3) throw new Error('Max 3 files allowed');
+    // Simplified validation
+    if (files.length > CONFIG.MAX_FILES) {
+      throw new Error(`Max ${CONFIG.MAX_FILES} files allowed`);
     }
 
-    // Validate individual files
     files.forEach(file => {
       if (file.size > CONFIG.MAX_FILE_SIZE) {
         throw new Error(`${file.name} exceeds 5MB`);
       }
     });
 
-    showError(`${files.length} valid files selected`, 'status-message success');
+    showError(`${files.length} files selected`, 'status-message success');
     
   } catch (error) {
     showError(error.message);
@@ -827,63 +822,108 @@ function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-MY', options);
 }
 
-// ================= INITIALIZATION =================
 document.addEventListener('DOMContentLoaded', () => {
+  // ================= INITIALIZATION =================
   detectViewMode();
-  initValidationListeners();
+  setupCategoryChangeListener();
   createLoaderElement();
 
-  // Initialize category requirements on page load
-  checkCategoryRequirements();
-
-  // Initialize parcel declaration form
-  const parcelForm = document.getElementById('declarationForm');
+  // ================= FORM VALIDATION SETUP =================
+  const parcelForm = document.getElementById('parcel-declaration-form');
   if (parcelForm) {
-    parcelForm.addEventListener('submit', handleParcelSubmission);
-    
-    // Set up category change listener
-    const categorySelect = document.getElementById('itemCategory');
-    if (categorySelect) {
-      categorySelect.addEventListener('change', checkCategoryRequirements);
-    }
+    // Initialize input listeners
+    parcelForm.querySelectorAll('input, select').forEach(input => {
+      input.addEventListener('input', handleFormInput);
+    });
 
-    // Phone field setup
+    // Initialize phone number formatting
     const phoneField = document.getElementById('phone');
     if (phoneField) {
-      const userData = checkSession();
-      phoneField.value = userData?.phone || '';
-      phoneField.readOnly = true;
+      phoneField.addEventListener('input', formatPhoneNumber);
     }
+
+    // ================= FILE UPLOAD HANDLING =================
+    const fileInput = document.getElementById('invoiceFiles');
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        handleFileSelection(e.target);
+        validateInvoiceFiles();
+        updateSubmitButtonState();
+      });
+    }
+
+    // ================= SUBMIT HANDLER =================
+    parcelForm.addEventListener('submit', handleParcelSubmission);
   }
 
-  // Session management
-  const publicPages = ['login.html', 'register.html', 'forgot-password.html'];
+  // ================= SESSION MANAGEMENT =================
+  const publicPages = ['login.html', 'register.html'];
   const isPublicPage = publicPages.some(page => 
-    window.location.pathname.includes(page)
+    window.location.pathname.endsWith(page)
   );
 
   if (!isPublicPage) {
     const userData = checkSession();
     if (!userData) return;
     
+    // Handle temporary password redirect
     if (userData.tempPassword && !window.location.pathname.includes('password-reset.html')) {
       handleLogout();
     }
   }
 
+  // ================= ACCESSIBILITY ENHANCEMENTS =================
+  const firstInput = document.querySelector('input:not([type="hidden"])');
+  if (firstInput) firstInput.focus();
+
+  // ================= CLEANUP ON EXIT =================
   window.addEventListener('beforeunload', () => {
     const errorElement = document.getElementById('error-message');
     if (errorElement) errorElement.style.display = 'none';
   });
-
-  const firstInput = document.querySelector('input:not([type="hidden"])');
-  if (firstInput) firstInput.focus();
 });
+
+// ================= SUPPORTING FUNCTIONS =================
+function handleFormInput(e) {
+  switch(e.target.id) {
+    case 'trackingNumber':
+      validateTrackingNumberInput(e.target);
+      break;
+    case 'nameOnParcel':
+      validateName(e.target);
+      break;
+    case 'phone':
+      validateParcelPhone(e.target);
+      break;
+    case 'itemDescription':
+      validateDescription(e.target);
+      break;
+    case 'quantity':
+      validateQuantity(e.target);
+      break;
+    case 'price':
+      validatePrice(e.target);
+      break;
+    case 'shippingPrice':
+      validateShippingPrice(e.target);
+      break;
+    case 'collectionPoint':
+      validateCollectionPoint(e.target);
+      break;
+  }
+  updateSubmitButtonState();
+}
+
+function formatPhoneNumber(e) {
+  const phone = e.target.value.replace(/\D/g, '');
+  const match = phone.match(/^(673|60)(\d{0,8})$/);
+  e.target.value = match ? `${match[1]} ${match[2]}` : phone;
+}
 
 // New functions for category requirements =================
 function checkCategoryRequirements() {
   const category = document.getElementById('itemCategory')?.value || '';
-  const fileInput = document.getElementById('fileUpload');
+  const fileInput = document.getElementById('invoiceFiles');
   const fileHelp = document.getElementById('fileHelp');
   
   const starredCategories = [
