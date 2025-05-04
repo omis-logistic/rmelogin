@@ -259,8 +259,7 @@ async function handleParcelSubmission(e) {
         price: formData.get('price'),
         shippingPrice: formData.get('shippingPrice'), // New field
         collectionPoint: formData.get('collectionPoint'),
-        itemCategory: itemCategory,
-        files: filesPayload,
+        files: processedFiles,
         remark: formData.get('remarks')?.trim() || ''
       };
 
@@ -300,27 +299,6 @@ function validateTrackingNumberInput(inputElement) {
 function validateTrackingNumber(value) {
   if (!/^[A-Z0-9-]{5,}$/i.test(value)) {
     throw new Error('Invalid tracking number format');
-  }
-}
-
-function validateItemCategory(category) {
-  const validCategories = [
-    'Accessories/Jewellery', 'Baby Appliances', 'Bag', 'Car Parts/Accessories',
-    'Carpets/Mat', 'Clothing', 'Computer Accessories', 'Cordless', 'Decorations',
-    'Disposable Pad/Mask', 'Electrical Appliances', 'Fabric', 'Fashion Accessories',
-    'Fishing kits/Accessories', 'Footware Shoes/Slippers', 'Game/Console/Board',
-    'Hand Tools', 'Handphone Casing', 'Headgear', 'Home Fitting/Furniture',
-    'Kitchenware', 'LED/Lamp', 'Matters/Bedding', 'Mix Item', 'Motor Part/Accessories',
-    '*Others', 'Perfume', 'Phone Accessories', 'Plastic Article', 'RC Parts/Accessories',
-    'Rubber', 'Seluar', 'Socks', 'Sport Equipment', 'Stationery', 'Stickers',
-    'Storage', 'Telkong', 'Toys', 'Tudong', 'Tumbler', 'Underwear',
-    'Watch & Accessories', 'Wire, Adapter & Plug',
-    '*Books', '*Cosmetics/Skincare/Bodycare', '*Food Beverage/Drinks',
-    '*Gadgets', '*Oil Ointment', '*Supplement'
-  ];
-  
-  if (!validCategories.includes(category)) {
-    throw new Error('Please select a valid item category');
   }
 }
 
@@ -366,34 +344,10 @@ function validateCollectionPoint(selectElement) {
   return isValid;
 }
 
-function validateCategory(selectElement) {
-  const value = selectElement?.value || '';
-  const isValid = value !== '';
-  showError(isValid ? '' : 'Please select item category', 'itemCategoryError');
-  if(isValid) checkInvoiceRequirements();
-  return isValid;
-}
-
 function validateInvoiceFiles() {
-  const mandatoryCategories = [
-    '* Books', '* Cosmetics/Skincare/Bodycare',
-    '* Food Beverage/Drinks', '* Gadgets',
-    '* Oil Ointment', '* Supplement', '*Others'
-  ];
-  
-  const category = document.getElementById('itemCategory')?.value || '';
   const files = document.getElementById('invoiceFiles')?.files || [];
-  let isValid = true;
-  let errorMessage = '';
-
-  if(files.length > 3) {
-    errorMessage = 'Maximum 3 files allowed';
-    isValid = false;
-  }
-  else if(mandatoryCategories.includes(category)) {
-    isValid = files.length > 0;
-    errorMessage = isValid ? '' : 'At least 1 invoice required';
-  }
+  let isValid = files.length >= 1 && files.length <= 3;
+  let errorMessage = isValid ? '' : 'Requires 1-3 documents';
 
   showError(errorMessage, 'invoiceFilesError');
   return isValid;
@@ -446,20 +400,11 @@ function validateFiles(category, files) {
 function handleFileSelection(input) {
   try {
     const files = Array.from(input.files);
-    const category = document.getElementById('itemCategory').value;
     
-    // Validate against starred categories
-    const starredCategories = [
-      '*Books', '*Cosmetics/Skincare/Bodycare', '*Food Beverage/Drinks',
-      '*Gadgets', '*Oil Ointment', '*Supplement', '*Others'
-    ];
-    
-    if (starredCategories.includes(category)) {
-      if (files.length < 1) throw new Error('At least 1 file required');
-      if (files.length > 3) throw new Error('Max 3 files allowed');
-    }
+    // Validate files for all submissions
+    if (files.length < 1) throw new Error('At least 1 file required');
+    if (files.length > 3) throw new Error('Max 3 files allowed');
 
-    // Validate individual files
     files.forEach(file => {
       if (file.size > CONFIG.MAX_FILE_SIZE) {
         throw new Error(`${file.name} exceeds 5MB`);
@@ -849,9 +794,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initValidationListeners();
   createLoaderElement();
 
-  // Initialize category requirements on page load
-  checkCategoryRequirements();
-
   // Initialize parcel declaration form
   const parcelForm = document.getElementById('declarationForm');
   if (parcelForm) {
@@ -896,32 +838,3 @@ document.addEventListener('DOMContentLoaded', () => {
   if (firstInput) firstInput.focus();
 });
 
-// New functions for category requirements =================
-function checkCategoryRequirements() {
-  const category = document.getElementById('itemCategory')?.value || '';
-  const fileInput = document.getElementById('fileUpload');
-  const fileHelp = document.getElementById('fileHelp');
-  
-  const starredCategories = [
-    '*Books', '*Cosmetics/Skincare/Bodycare',
-    '*Food Beverage/Drinks', '*Gadgets',
-    '*Oil Ointment', '*Supplement', '*Others'
-  ];
-
-  if (starredCategories.includes(category)) {
-    fileInput.required = true;
-    fileHelp.innerHTML = 'Required: JPEG, PNG, PDF (Max 5MB each)';
-    fileHelp.style.color = '#ff4444';
-  } else {
-    fileInput.required = false;
-    fileHelp.innerHTML = 'Optional: JPEG, PNG, PDF (Max 5MB each)';
-    fileHelp.style.color = '#888';
-  }
-}
-
-function setupCategoryChangeListener() {
-  const categorySelect = document.getElementById('itemCategory');
-  if (categorySelect) {
-    categorySelect.addEventListener('change', checkCategoryRequirements);
-  }
-}
