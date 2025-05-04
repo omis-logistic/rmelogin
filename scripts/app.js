@@ -597,11 +597,10 @@ function initValidationListeners() {
       });
     });
 
-    const fileInput = document.getElementById('invoiceFiles');
-    if(fileInput) {
-      fileInput.addEventListener('change', () => {
-        validateInvoiceFiles();
-        updateSubmitButtonState();
+  const fileInput = document.getElementById('invoiceFiles');
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      handleFileSelection(e.target);
       });
     }
   }
@@ -822,67 +821,58 @@ function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-MY', options);
 }
 
+// ================= INITIALIZATION =================
 document.addEventListener('DOMContentLoaded', () => {
-  // ================= INITIALIZATION =================
   detectViewMode();
-  setupCategoryChangeListener();
+  initValidationListeners();
   createLoaderElement();
 
-  // ================= FORM VALIDATION SETUP =================
-  const parcelForm = document.getElementById('parcel-declaration-form');
-  if (parcelForm) {
-    // Initialize input listeners
-    parcelForm.querySelectorAll('input, select').forEach(input => {
-      input.addEventListener('input', handleFormInput);
-    });
+  // Initialize category requirements on page load
+  checkCategoryRequirements();
 
-    // Initialize phone number formatting
+  // Initialize parcel declaration form
+  const parcelForm = document.getElementById('declarationForm');
+  if (parcelForm) {
+    parcelForm.addEventListener('submit', handleParcelSubmission);
+    
+    // Set up category change listener
+    const categorySelect = document.getElementById('itemCategory');
+    if (categorySelect) {
+      categorySelect.addEventListener('change', checkCategoryRequirements);
+    }
+
+    // Phone field setup
     const phoneField = document.getElementById('phone');
     if (phoneField) {
-      phoneField.addEventListener('input', formatPhoneNumber);
+      const userData = checkSession();
+      phoneField.value = userData?.phone || '';
+      phoneField.readOnly = true;
     }
-
-    // ================= FILE UPLOAD HANDLING =================
-    const fileInput = document.getElementById('invoiceFiles');
-    if (fileInput) {
-      fileInput.addEventListener('change', (e) => {
-        handleFileSelection(e.target);
-        validateInvoiceFiles();
-        updateSubmitButtonState();
-      });
-    }
-
-    // ================= SUBMIT HANDLER =================
-    parcelForm.addEventListener('submit', handleParcelSubmission);
   }
 
-  // ================= SESSION MANAGEMENT =================
-  const publicPages = ['login.html', 'register.html'];
+  // Session management
+  const publicPages = ['login.html', 'register.html', 'forgot-password.html'];
   const isPublicPage = publicPages.some(page => 
-    window.location.pathname.endsWith(page)
+    window.location.pathname.includes(page)
   );
 
   if (!isPublicPage) {
     const userData = checkSession();
     if (!userData) return;
     
-    // Handle temporary password redirect
     if (userData.tempPassword && !window.location.pathname.includes('password-reset.html')) {
       handleLogout();
     }
   }
 
-  // ================= ACCESSIBILITY ENHANCEMENTS =================
-  const firstInput = document.querySelector('input:not([type="hidden"])');
-  if (firstInput) firstInput.focus();
-
-  // ================= CLEANUP ON EXIT =================
   window.addEventListener('beforeunload', () => {
     const errorElement = document.getElementById('error-message');
     if (errorElement) errorElement.style.display = 'none';
   });
-});
 
+  const firstInput = document.querySelector('input:not([type="hidden"])');
+  if (firstInput) firstInput.focus();
+});
 
 // New functions for category requirements =================
 function checkCategoryRequirements() {
