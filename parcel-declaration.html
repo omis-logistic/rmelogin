@@ -72,16 +72,12 @@
       <!-- Item Category removed-->
      
       <!-- File Upload -->
-      <div class="input-group">
-        <label for="fileUpload">Upload Documents:</label>
-        <input type="file" 
-       id="invoiceFiles" 
-       name="files"
-       multiple
-       accept="image/jpeg, image/png, application/pdf"
-       onchange="handleFileSelection(this)">
-        <small id="fileHelp" class="form-text">
-          Required for starred (*) categories: JPEG, PNG, PDF (Max 5MB each)
+      <div class="form-group">
+        <label>Upload Invoice</label>
+        <input type="file" id="invoiceFiles" name="files" multiple>
+        <div class="error-message" id="invoiceFilesError"></div>
+        <small id="fileHelp" class="form-text text-muted">
+          Optional: JPEG, PNG, PDF (Max 5MB each)
         </small>
       </div>
 
