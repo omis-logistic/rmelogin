@@ -216,53 +216,34 @@ function resetForm() {
 // ================= PARCEL DECLARATION HANDLER =================
 async function handleParcelSubmission(e) {
   e.preventDefault();
-  const form = e.target;
   showLoading(true);
 
   try {
-    const formData = new FormData(form);
-    const itemCategory = formData.get('itemCategory');
-    const files = Array.from(formData.getAll('files'));
+    const formData = new FormData(e.target);
     
-    // Mandatory file check for starred categories
-    const starredCategories = [
-      '*Books', '*Cosmetics/Skincare/Bodycare',
-      '*Food Beverage/Drinks', '*Gadgets',
-      '*Oil Ointment', '*Supplement', '*Others'
-    ];
-    
-    if (starredCategories.includes(itemCategory)) {
-      if (files.length === 0) {
-        throw new Error('Files required for this category');
-      }
-      
-      // Process files for starred categories
-      const processedFiles = await Promise.all(
-        files.map(async file => ({
-          name: file.name,
-          type: file.type,
-          data: await readFileAsBase64(file)
-        }))
-      );
-      
-      var filesPayload = processedFiles;
-    } else {
-      var filesPayload = [];
-    }
-
+    // Add shippingPrice and remark to payload
     const payload = {
       trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
       nameOnParcel: formData.get('nameOnParcel').trim(),
-      phone: document.getElementById('phone').value,
+      phone: formData.get('phone'),
       itemDescription: formData.get('itemDescription').trim(),
       quantity: formData.get('quantity'),
       price: formData.get('price'),
-      shippingPrice: parseFloat(formData.get('shippingPrice')) || 0,
-      remark: formData.get('remark')?.trim() || '',
+      shippingPrice: formData.get('shippingPrice'), // New field
       collectionPoint: formData.get('collectionPoint'),
-      //itemCategory: itemCategory,
-      files: filesPayload
+      remark: formData.get('remark') || '',         // New field
+      files: await processFiles(Array.from(formData.getAll('files')))
     };
+
+    // Numeric conversions
+    payload.quantity = Number(payload.quantity);
+    payload.price = Number(payload.price);
+    payload.shippingPrice = Number(payload.shippingPrice);
+
+    // Validate shipping price
+    if (isNaN(payload.shippingPrice) || payload.shippingPrice < 0) {
+      throw new Error('Invalid shipping price');
+    }
 
     await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
@@ -271,11 +252,9 @@ async function handleParcelSubmission(e) {
     });
 
   } catch (error) {
-    // Still ignore errors but files are handled
+    showError(error.message);
   } finally {
     showLoading(false);
-    resetForm();
-    showSuccessMessage();
   }
 }
 
@@ -413,10 +392,9 @@ async function processFiles(files) {
 }
 
 function toBase64(file) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = error => reject(error);
     reader.readAsDataURL(file);
   });
 }
@@ -536,17 +514,21 @@ function checkAllFields() {
   const validations = [
     validateTrackingNumberInput(document.getElementById('trackingNumber')),
     validateName(document.getElementById('nameOnParcel')),
-    validateParcelPhone(document.getElementById('phoneNumber')),
+    validateParcelPhone(document.getElementById('phone')),
     validateDescription(document.getElementById('itemDescription')),
     validateQuantity(document.getElementById('quantity')),
     validatePrice(document.getElementById('price')),
     validateShippingPrice(document.getElementById('shippingPrice')),
-    validateCollectionPoint(document.getElementById('collectionPoint')),
-    //validateCategory(document.getElementById('itemCategory')),
-    validateInvoiceFiles()
+    validateCollectionPoint(document.getElementById('collectionPoint'))
   ];
+  return validations.every(v => v);
+}
 
-  return validations.every(v => v === true);
+function validateShippingPrice(input) {
+  const value = Number(input.value || 0);
+  const isValid = !isNaN(value) && value >= 0;
+  showError(isValid ? '' : 'Valid shipping amount required', 'shippingPriceError');
+  return isValid;
 }
 
 function checkInvoiceRequirements() {
