@@ -260,7 +260,7 @@ async function handleParcelSubmission(e) {
         shippingPrice: formData.get('shippingPrice'), // New field
         collectionPoint: formData.get('collectionPoint'),
         itemCategory: itemCategory,
-        files: filesPayload,
+        files: processedFiles,
         remark: formData.get('remarks')?.trim() || ''
       };
 
@@ -375,25 +375,9 @@ function validateCategory(selectElement) {
 }
 
 function validateInvoiceFiles() {
-  const mandatoryCategories = [
-    '* Books', '* Cosmetics/Skincare/Bodycare',
-    '* Food Beverage/Drinks', '* Gadgets',
-    '* Oil Ointment', '* Supplement', '*Others'
-  ];
-  
-  const category = document.getElementById('itemCategory')?.value || '';
   const files = document.getElementById('invoiceFiles')?.files || [];
-  let isValid = true;
-  let errorMessage = '';
-
-  if(files.length > 3) {
-    errorMessage = 'Maximum 3 files allowed';
-    isValid = false;
-  }
-  else if(mandatoryCategories.includes(category)) {
-    isValid = files.length > 0;
-    errorMessage = isValid ? '' : 'At least 1 invoice required';
-  }
+  let isValid = files.length >= 1 && files.length <= 3;
+  let errorMessage = isValid ? '' : 'Requires 1-3 documents';
 
   showError(errorMessage, 'invoiceFilesError');
   return isValid;
@@ -446,20 +430,11 @@ function validateFiles(category, files) {
 function handleFileSelection(input) {
   try {
     const files = Array.from(input.files);
-    const category = document.getElementById('itemCategory').value;
     
-    // Validate against starred categories
-    const starredCategories = [
-      '*Books', '*Cosmetics/Skincare/Bodycare', '*Food Beverage/Drinks',
-      '*Gadgets', '*Oil Ointment', '*Supplement', '*Others'
-    ];
-    
-    if (starredCategories.includes(category)) {
-      if (files.length < 1) throw new Error('At least 1 file required');
-      if (files.length > 3) throw new Error('Max 3 files allowed');
-    }
+    // Validate files for all submissions
+    if (files.length < 1) throw new Error('At least 1 file required');
+    if (files.length > 3) throw new Error('Max 3 files allowed');
 
-    // Validate individual files
     files.forEach(file => {
       if (file.size > CONFIG.MAX_FILE_SIZE) {
         throw new Error(`${file.name} exceeds 5MB`);
