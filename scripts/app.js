@@ -222,20 +222,19 @@ async function handleParcelSubmission(e) {
   try {
     const formData = new FormData(form);
     const files = Array.from(formData.getAll('files'));
-      
-      // Process files for starred categories
-      const processedFiles = await Promise.all(
-        files.map(async file => ({
-          name: file.name,
-          type: file.type,
-          data: await readFileAsBase64(file)
-        }))
-      );
-      
-      var filesPayload = processedFiles;
-    } else {
-      var filesPayload = [];
+    
+    // Process files for all submissions
+    if (files.length === 0) {
+      throw new Error('Files required for submission');
     }
+    
+    const processedFiles = await Promise.all(
+      files.map(async file => ({
+        name: file.name,
+        type: file.type,
+        data: await readFileAsBase64(file)
+      }))
+    );
 
       const payload = {
         trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
