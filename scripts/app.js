@@ -1,8 +1,8 @@
 //scripts/app.js
 // ================= CONFIGURATION =================
 const CONFIG = {
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbyOk0t3IdJ3YztGw906ZkD5RCXbWgK_GP0Rkx1vTgbRXMKWMeHwAfwxkhXufWS7h4MZzg/exec',
-  PROXY_URL: 'https://script.google.com/macros/s/AKfycbxOQNZse5letPKCfWN41FQ4L2xwaJDWIJZY6sRDGJPSvPyc83Jpn1qfsXg0Kd7QtfKi/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbwOdB-8-RWxG5rYnwNWT41tO9bM_x5dQE7yEH1wySCjf3ESTKlPBwkn6x9gTjFsEEiAqw/exec',
+  PROXY_URL: 'https://script.google.com/macros/s/AKfycbw-2bfDNOj8bMa3EOmS1LnMNhHjzTuFcBTTRGlpfYjlelRO1F3mSX2HppljrtZ2ph9M/exec',
   SESSION_TIMEOUT: 3600,
   MAX_FILE_SIZE: 5 * 1024 * 1024,
   ALLOWED_FILE_TYPES: ['image/jpeg', 'image/png', 'application/pdf'],
@@ -241,6 +241,7 @@ async function handleParcelSubmission(e) {
         price: formData.get('price'),
         shippingPrice: formData.get('shippingPrice'), // New field
         collectionPoint: formData.get('collectionPoint'),
+        itemCategory: formData.get('itemCategory'),
         files: processedFiles,
         remark: formData.get('remarks')?.trim() || ''
       };
@@ -323,6 +324,13 @@ function validateCollectionPoint(selectElement) {
   const value = selectElement?.value || '';
   const isValid = value !== '';
   showError(isValid ? '' : 'Please select collection point', 'collectionPointError');
+  return isValid;
+}
+
+function validateCategory(selectElement) {
+  const value = selectElement?.value || '';
+  const isValid = value !== '';
+  showError(isValid ? '' : 'Please select item category', 'itemCategoryError');
   return isValid;
 }
 
@@ -485,6 +493,7 @@ function checkAllFields() {
     validatePrice(document.getElementById('price')),
     validateShippingPrice(document.getElementById('shippingPrice')),
     validateCollectionPoint(document.getElementById('collectionPoint')),
+    validateCategory(document.getElementById('itemCategory')),
     validateInvoiceFiles()
   ];
 
@@ -533,6 +542,9 @@ function initValidationListeners() {
             break;
           case 'collectionPoint':
             validateCollectionPoint(input);
+            break;
+          case 'itemCategory':
+            validateCategory(input);
             break;
           case 'remarks':
           // No validation needed for optional field
