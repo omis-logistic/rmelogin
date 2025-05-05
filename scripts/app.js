@@ -245,7 +245,7 @@ async function handleParcelSubmission(e) {
         price: formData.get('price'),
         shippingPrice: formData.get('shippingPrice'), // New field
         collectionPoint: formData.get('collectionPoint'),
-        itemCategory: itemCategory,
+        itemCategory: formData.get('itemCategory'),
         files: processedFiles,
         remark: formData.get('remarks')?.trim() || ''
       };
