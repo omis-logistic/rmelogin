@@ -221,48 +221,34 @@ async function handleParcelSubmission(e) {
 
   try {
     const formData = new FormData(form);
-    const itemCategory = formData.get('itemCategory');
     const files = Array.from(formData.getAll('files'));
     
-    // Mandatory file check for starred categories
-    const starredCategories = [
-      '*Books', '*Cosmetics/Skincare/Bodycare',
-      '*Food Beverage/Drinks', '*Gadgets',
-      '*Oil Ointment', '*Supplement', '*Others'
-    ];
-    
-    if (starredCategories.includes(itemCategory)) {
-      if (files.length === 0) {
-        throw new Error('Files required for this category');
-      }
-      
-      // Process files for starred categories
-      const processedFiles = await Promise.all(
-        files.map(async file => ({
-          name: file.name,
-          type: file.type,
-          data: await readFileAsBase64(file)
-        }))
-      );
-      
-      var filesPayload = processedFiles;
-    } else {
-      var filesPayload = [];
+    // Process files for all submissions
+    if (files.length === 0) {
+      throw new Error('Files required for submission');
     }
+    
+    const processedFiles = await Promise.all(
+      files.map(async file => ({
+        name: file.name,
+        type: file.type,
+        data: await readFileAsBase64(file)
+      }))
+    );
 
-      const payload = {
-        trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
-        nameOnParcel: formData.get('nameOnParcel').trim(),
-        phone: document.getElementById('phone').value,
-        itemDescription: formData.get('itemDescription').trim(),
-        quantity: formData.get('quantity'),
-        price: formData.get('price'),
-        shippingPrice: formData.get('shippingPrice'), // New field
-        collectionPoint: formData.get('collectionPoint'),
-        itemCategory: itemCategory,
-        files: processedFiles,
-        remark: formData.get('remarks')?.trim() || ''
-      };
+    const payload = {
+      trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
+      nameOnParcel: formData.get('nameOnParcel').trim(),
+      phone: document.getElementById('phone').value,
+      itemDescription: formData.get('itemDescription').trim(),
+      quantity: formData.get('quantity'),
+      price: formData.get('price'),
+      shippingPrice: formData.get('shippingPrice'),
+      collectionPoint: formData.get('collectionPoint'),
+      itemCategory: formData.get('itemCategory'), // Keep category
+      remark: formData.get('remarks')?.trim() || '',
+      files: processedFiles // Now mandatory for all
+    };
 
     await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
@@ -271,7 +257,7 @@ async function handleParcelSubmission(e) {
     });
 
   } catch (error) {
-    // Still ignore errors but files are handled
+    showError(error.message);
   } finally {
     showLoading(false);
     resetForm();
@@ -376,9 +362,9 @@ function validateCategory(selectElement) {
 
 function validateInvoiceFiles() {
   const files = document.getElementById('invoiceFiles')?.files || [];
-  let isValid = files.length >= 1 && files.length <= 3;
-  let errorMessage = isValid ? '' : 'Requires 1-3 documents';
-
+  const isValid = files.length >= 1 && files.length <= 3;
+  const errorMessage = isValid ? '' : 'Requires 1-3 documents';
+  
   showError(errorMessage, 'invoiceFilesError');
   return isValid;
 }
@@ -431,7 +417,7 @@ function handleFileSelection(input) {
   try {
     const files = Array.from(input.files);
     
-    // Validate files for all submissions
+    // Validate for all categories
     if (files.length < 1) throw new Error('At least 1 file required');
     if (files.length > 3) throw new Error('Max 3 files allowed');
 
@@ -873,25 +859,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // New functions for category requirements =================
 function checkCategoryRequirements() {
-  const category = document.getElementById('itemCategory')?.value || '';
   const fileInput = document.getElementById('fileUpload');
   const fileHelp = document.getElementById('fileHelp');
   
-  const starredCategories = [
-    '*Books', '*Cosmetics/Skincare/Bodycare',
-    '*Food Beverage/Drinks', '*Gadgets',
-    '*Oil Ointment', '*Supplement', '*Others'
-  ];
-
-  if (starredCategories.includes(category)) {
-    fileInput.required = true;
-    fileHelp.innerHTML = 'Required: JPEG, PNG, PDF (Max 5MB each)';
-    fileHelp.style.color = '#ff4444';
-  } else {
-    fileInput.required = false;
-    fileHelp.innerHTML = 'Optional: JPEG, PNG, PDF (Max 5MB each)';
-    fileHelp.style.color = '#888';
-  }
+  // Always show required for files
+  fileInput.required = true;
+  fileHelp.innerHTML = 'Required: JPEG, PNG, PDF (Max 5MB each)';
+  fileHelp.style.color = '#ff4444';
 }
 
 function setupCategoryChangeListener() {
