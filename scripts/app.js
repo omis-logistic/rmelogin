@@ -1,7 +1,7 @@
 //scripts/app.js
 // ================= CONFIGURATION =================
 const CONFIG = {
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbwOdB-8-RWxG5rYnwNWT41tO9bM_x5dQE7yEH1wySCjf3ESTKlPBwkn6x9gTjFsEEiAqw/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbyOk0t3IdJ3YztGw906ZkD5RCXbWgK_GP0Rkx1vTgbRXMKWMeHwAfwxkhXufWS7h4MZzg/exec',
   PROXY_URL: 'https://script.google.com/macros/s/AKfycbw-2bfDNOj8bMa3EOmS1LnMNhHjzTuFcBTTRGlpfYjlelRO1F3mSX2HppljrtZ2ph9M/exec',
   SESSION_TIMEOUT: 3600,
   MAX_FILE_SIZE: 5 * 1024 * 1024,
@@ -221,16 +221,34 @@ async function handleParcelSubmission(e) {
 
   try {
     const formData = new FormData(form);
+    const itemCategory = formData.get('itemCategory');
     const files = Array.from(formData.getAll('files'));
+    
+    // Mandatory file check for starred categories
+    const starredCategories = [
+      '*Books', '*Cosmetics/Skincare/Bodycare',
+      '*Food Beverage/Drinks', '*Gadgets',
+      '*Oil Ointment', '*Supplement', '*Others'
+    ];
+    
+    if (starredCategories.includes(itemCategory)) {
+      if (files.length === 0) {
+        throw new Error('Files required for this category');
+      }
       
-    // Process files for ALL submissions
-    const processedFiles = await Promise.all(
-      files.map(async file => ({
-        name: file.name,
-        type: file.type,
-        data: await readFileAsBase64(file)
-      }))
-    );
+      // Process files for starred categories
+      const processedFiles = await Promise.all(
+        files.map(async file => ({
+          name: file.name,
+          type: file.type,
+          data: await readFileAsBase64(file)
+        }))
+      );
+      
+      var filesPayload = processedFiles;
+    } else {
+      var filesPayload = [];
+    }
 
       const payload = {
         trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
@@ -241,8 +259,8 @@ async function handleParcelSubmission(e) {
         price: formData.get('price'),
         shippingPrice: formData.get('shippingPrice'), // New field
         collectionPoint: formData.get('collectionPoint'),
-        itemCategory: formData.get('itemCategory'),
-        files: processedFiles,
+        itemCategory: itemCategory,
+        files: filesPayload,
         remark: formData.get('remarks')?.trim() || ''
       };
 
@@ -282,6 +300,27 @@ function validateTrackingNumberInput(inputElement) {
 function validateTrackingNumber(value) {
   if (!/^[A-Z0-9-]{5,}$/i.test(value)) {
     throw new Error('Invalid tracking number format');
+  }
+}
+
+function validateItemCategory(category) {
+  const validCategories = [
+    'Accessories/Jewellery', 'Baby Appliances', 'Bag', 'Car Parts/Accessories',
+    'Carpets/Mat', 'Clothing', 'Computer Accessories', 'Cordless', 'Decorations',
+    'Disposable Pad/Mask', 'Electrical Appliances', 'Fabric', 'Fashion Accessories',
+    'Fishing kits/Accessories', 'Footware Shoes/Slippers', 'Game/Console/Board',
+    'Hand Tools', 'Handphone Casing', 'Headgear', 'Home Fitting/Furniture',
+    'Kitchenware', 'LED/Lamp', 'Matters/Bedding', 'Mix Item', 'Motor Part/Accessories',
+    '*Others', 'Perfume', 'Phone Accessories', 'Plastic Article', 'RC Parts/Accessories',
+    'Rubber', 'Seluar', 'Socks', 'Sport Equipment', 'Stationery', 'Stickers',
+    'Storage', 'Telkong', 'Toys', 'Tudong', 'Tumbler', 'Underwear',
+    'Watch & Accessories', 'Wire, Adapter & Plug',
+    '*Books', '*Cosmetics/Skincare/Bodycare', '*Food Beverage/Drinks',
+    '*Gadgets', '*Oil Ointment', '*Supplement'
+  ];
+  
+  if (!validCategories.includes(category)) {
+    throw new Error('Please select a valid item category');
   }
 }
 
@@ -331,13 +370,30 @@ function validateCategory(selectElement) {
   const value = selectElement?.value || '';
   const isValid = value !== '';
   showError(isValid ? '' : 'Please select item category', 'itemCategoryError');
+  if(isValid) checkInvoiceRequirements();
   return isValid;
 }
 
 function validateInvoiceFiles() {
+  const mandatoryCategories = [
+    '* Books', '* Cosmetics/Skincare/Bodycare',
+    '* Food Beverage/Drinks', '* Gadgets',
+    '* Oil Ointment', '* Supplement', '*Others'
+  ];
+  
+  const category = document.getElementById('itemCategory')?.value || '';
   const files = document.getElementById('invoiceFiles')?.files || [];
-  let isValid = files.length >= 1 && files.length <= 3;
-  let errorMessage = isValid ? '' : 'Requires 1-3 documents';
+  let isValid = true;
+  let errorMessage = '';
+
+  if(files.length > 3) {
+    errorMessage = 'Maximum 3 files allowed';
+    isValid = false;
+  }
+  else if(mandatoryCategories.includes(category)) {
+    isValid = files.length > 0;
+    errorMessage = isValid ? '' : 'At least 1 invoice required';
+  }
 
   showError(errorMessage, 'invoiceFilesError');
   return isValid;
@@ -390,11 +446,20 @@ function validateFiles(category, files) {
 function handleFileSelection(input) {
   try {
     const files = Array.from(input.files);
+    const category = document.getElementById('itemCategory').value;
     
-    // Validate files for all submissions
-    if (files.length < 1) throw new Error('At least 1 file required');
-    if (files.length > 3) throw new Error('Max 3 files allowed');
+    // Validate against starred categories
+    const starredCategories = [
+      '*Books', '*Cosmetics/Skincare/Bodycare', '*Food Beverage/Drinks',
+      '*Gadgets', '*Oil Ointment', '*Supplement', '*Others'
+    ];
+    
+    if (starredCategories.includes(category)) {
+      if (files.length < 1) throw new Error('At least 1 file required');
+      if (files.length > 3) throw new Error('Max 3 files allowed');
+    }
 
+    // Validate individual files
     files.forEach(file => {
       if (file.size > CONFIG.MAX_FILE_SIZE) {
         throw new Error(`${file.name} exceeds 5MB`);
@@ -493,7 +558,6 @@ function checkAllFields() {
     validatePrice(document.getElementById('price')),
     validateShippingPrice(document.getElementById('shippingPrice')),
     validateCollectionPoint(document.getElementById('collectionPoint')),
-    validateCategory(document.getElementById('itemCategory')),
     validateInvoiceFiles()
   ];
 
@@ -785,6 +849,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initValidationListeners();
   createLoaderElement();
 
+  // Initialize category requirements on page load
+  checkCategoryRequirements();
+
   // Initialize parcel declaration form
   const parcelForm = document.getElementById('declarationForm');
   if (parcelForm) {
@@ -829,3 +896,32 @@ document.addEventListener('DOMContentLoaded', () => {
   if (firstInput) firstInput.focus();
 });
 
+// New functions for category requirements =================
+function checkCategoryRequirements() {
+  const category = document.getElementById('itemCategory')?.value || '';
+  const fileInput = document.getElementById('fileUpload');
+  const fileHelp = document.getElementById('fileHelp');
+  
+  const starredCategories = [
+    '*Books', '*Cosmetics/Skincare/Bodycare',
+    '*Food Beverage/Drinks', '*Gadgets',
+    '*Oil Ointment', '*Supplement', '*Others'
+  ];
+
+  if (starredCategories.includes(category)) {
+    fileInput.required = true;
+    fileHelp.innerHTML = 'Required: JPEG, PNG, PDF (Max 5MB each)';
+    fileHelp.style.color = '#ff4444';
+  } else {
+    fileInput.required = false;
+    fileHelp.innerHTML = 'Optional: JPEG, PNG, PDF (Max 5MB each)';
+    fileHelp.style.color = '#888';
+  }
+}
+
+function setupCategoryChangeListener() {
+  const categorySelect = document.getElementById('itemCategory');
+  if (categorySelect) {
+    categorySelect.addEventListener('change', checkCategoryRequirements);
+  }
+}
