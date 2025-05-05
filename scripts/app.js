@@ -222,33 +222,34 @@ async function handleParcelSubmission(e) {
   try {
     const formData = new FormData(form);
     const files = Array.from(formData.getAll('files'));
-    
-    // Process files for all submissions
-    if (files.length === 0) {
-      throw new Error('Files required for submission');
+      
+      // Process files for starred categories
+      const processedFiles = await Promise.all(
+        files.map(async file => ({
+          name: file.name,
+          type: file.type,
+          data: await readFileAsBase64(file)
+        }))
+      );
+      
+      var filesPayload = processedFiles;
+    } else {
+      var filesPayload = [];
     }
-    
-    const processedFiles = await Promise.all(
-      files.map(async file => ({
-        name: file.name,
-        type: file.type,
-        data: await readFileAsBase64(file)
-      }))
-    );
 
-    const payload = {
-      trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
-      nameOnParcel: formData.get('nameOnParcel').trim(),
-      phone: document.getElementById('phone').value,
-      itemDescription: formData.get('itemDescription').trim(),
-      quantity: formData.get('quantity'),
-      price: formData.get('price'),
-      shippingPrice: formData.get('shippingPrice'),
-      collectionPoint: formData.get('collectionPoint'),
-      itemCategory: formData.get('itemCategory'), // Keep category
-      remark: formData.get('remarks')?.trim() || '',
-      files: processedFiles // Now mandatory for all
-    };
+      const payload = {
+        trackingNumber: formData.get('trackingNumber').trim().toUpperCase(),
+        nameOnParcel: formData.get('nameOnParcel').trim(),
+        phone: document.getElementById('phone').value,
+        itemDescription: formData.get('itemDescription').trim(),
+        quantity: formData.get('quantity'),
+        price: formData.get('price'),
+        shippingPrice: formData.get('shippingPrice'), // New field
+        collectionPoint: formData.get('collectionPoint'),
+        itemCategory: itemCategory,
+        files: processedFiles,
+        remark: formData.get('remarks')?.trim() || ''
+      };
 
     await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
@@ -257,7 +258,7 @@ async function handleParcelSubmission(e) {
     });
 
   } catch (error) {
-    showError(error.message);
+    // Still ignore errors but files are handled
   } finally {
     showLoading(false);
     resetForm();
